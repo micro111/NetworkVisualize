@@ -1,6 +1,6 @@
 import os
 import subprocess
-
+from database import SQLiteDB
 class PacketAnalyzer:
     def __init__(self, log_dir="log/"):
         self.TSHARK_PATH = 'C:\\Program Files\\Wireshark\\tshark.exe'
