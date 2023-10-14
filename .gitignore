@@ -164,3 +164,4 @@ backup_py/*
 seen_*
 log/*
 app/node_modules/*
+app/assets/*
