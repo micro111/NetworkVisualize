@@ -4,9 +4,8 @@ import { OrbitControls, Sphere, Html, Line } from '@react-three/drei';
 import { animated, useSpring } from '@react-spring/web';
 import { Vector3, CatmullRomCurve3, TextureLoader } from 'three';
 import InfoBox from './InfoBox';
+import NodeInfoBox from './NodeInfoBox';  // 追加
 import './3Dtest.css';
-
-
 
 const earthRadius = 5;
 
@@ -19,7 +18,7 @@ const calculateSpherePoint = (lat, lon, radius) => {
   return [x, y, z];
 };
 
-const Node = ({ position, info }) => {
+const Node = ({ position, info, onClick }) => {
   const [hovered, setHovered] = useState(false);
   const animationProps = useSpring({ opacity: hovered ? 1 : 0 });
   const AnimatedHtml = animated(Html);
@@ -29,34 +28,24 @@ const Node = ({ position, info }) => {
       position={position}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
+      onClick={() => onClick(info)}
     >
       <Sphere args={[0.1]}>
         <meshStandardMaterial color={'lightblue'} />
       </Sphere>
       <AnimatedHtml style={animationProps} scaleFactor={10}>
         <div style={{ color: 'white', background: 'rgba(0, 0, 0, 0.5)', padding: '10px', borderRadius: '5px', fontSize: '16px' }}>
-          {info}
+          {info.info}
         </div>
       </AnimatedHtml>
     </mesh>
   );
 };
 
-type ConnectionProps = {
-  start: number[];
-  end: number[];
-  info: string;
-  color: string;
-  delay?: number;  // この行を追加
-};
-
-const Connection: React.FC<ConnectionProps> = ({ start, end, info, color, delay = 0 }) => {
-  const [hovered, setHovered] = useState(false);
+const Connection = ({ start, end, info, color, delay = 0 }) => {
   const [lineProgress, setLineProgress] = useState(0);
   const [points, setPoints] = useState([]);
   const [isDelayed, setIsDelayed] = useState(true);
-
-  const AnimatedHtml = animated(Html);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -72,7 +61,7 @@ const Connection: React.FC<ConnectionProps> = ({ start, end, info, color, delay 
       (start[2] + end[2]) / 2
     );
     const length = midPoint.length();
-    const scalingFactor = 2;  // この値を調整して、線が球体に埋まらないようにする
+    const scalingFactor = 2;
     midPoint.normalize().multiplyScalar(length * scalingFactor);
 
     const curve = new CatmullRomCurve3([
@@ -85,7 +74,6 @@ const Connection: React.FC<ConnectionProps> = ({ start, end, info, color, delay 
     const newPoints = fullPoints.slice(0, Math.floor(lineProgress * fullPoints.length));
     setPoints(newPoints);
   }, [lineProgress, start, end]);
-
 
   useFrame(() => {
     if (!isDelayed) {
@@ -104,23 +92,10 @@ const Connection: React.FC<ConnectionProps> = ({ start, end, info, color, delay 
           points={points}
           color={color}
           lineWidth={0.7}
-          onPointerOver={() => setHovered(true)}
-          onPointerOut={() => setHovered(false)}
         />
       )}
-      {hovered && (
-        <AnimatedHtml position={end} scaleFactor={10}>
-          <div style={{ color: 'white', background: 'rgba(0, 0, 0, 0.5)', padding: '10px', borderRadius: '5px', fontSize: '16px' }}>
-            <h3>{info}</h3>
-            <ul>
-              <li>Name: John Doe</li>
-              <li>Date: 2023-10-13</li>
-            </ul>
-          </div>
-        </AnimatedHtml>
-      )}
     </>
-  )
+  );
 };
 
 const Earth = () => {
@@ -135,7 +110,7 @@ const Earth = () => {
 
   return (
     <mesh ref={earthRef} position={[0, 0, 0]}>
-      <Sphere args={[earthRadius, 64, 64]}>  
+      <Sphere args={[earthRadius, 64, 64]}>
         {earthTexture && (
           <meshStandardMaterial map={earthTexture} rotation={0} />
         )}
@@ -159,15 +134,20 @@ const CameraController = () => {
     }
   });
 
-  return <OrbitControls ref={controls} autoRotate enablePan={false}/>;
+  return <OrbitControls ref={controls} autoRotate enablePan={false} />;
 };
 
 const Graph3D = () => {
   const [enableAutoRotate, setEnableAutoRotate] = useState(true);
+  const [selectedNode, setSelectedNode] = useState(null);
+
   const handleOrbitControlsChange = () => {
     setEnableAutoRotate(false);
   };
-   
+
+  const handleNodeClick = (nodeInfo) => {
+    setSelectedNode(nodeInfo);
+  };
 
   const japanPosition = calculateSpherePoint(35.6895, 139.6917, earthRadius);
   const nodeData = [
@@ -177,11 +157,11 @@ const Graph3D = () => {
   ];
 
   return (
-        <div style={{ position: 'relative' ,width:'100%',height:'100%'}}>
-        <Canvas
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <Canvas
         antialias={"true"}
         style={{ background: 'black' }}
-        camera={{ position: [0, 0, 20], fov: 50 }}  // この行を追加
+        camera={{ position: [0, 0, 20], fov: 50 }}
       >
         <ambientLight />
         <pointLight position={[10, 10, 10]} />
@@ -196,21 +176,23 @@ const Graph3D = () => {
           onChange={handleOrbitControlsChange}
         />
         <Earth />
-        <Node position={japanPosition} info="Japan" />
+        <Node position={japanPosition} info={{ lat: 35.6895, lon: 139.6917, info: 'Japan' }} onClick={handleNodeClick} />
         {nodeData.map((node, idx) => {
-        const position = calculateSpherePoint(node.lat, node.lon, earthRadius);
-        return (
-          <React.Fragment key={idx}>
-            <Node position={position} info={node.info} />
-            <Connection start={japanPosition} end={position} info={node.info} color={node.color} delay={node.delay} />
-          </React.Fragment>
-        );
-      })}
+          const position = calculateSpherePoint(node.lat, node.lon, earthRadius);
+          return (
+            <React.Fragment key={idx}>
+              <Node position={position} info={node} onClick={handleNodeClick} />
+              <Connection start={japanPosition} end={position} info={node.info} color={node.color} delay={node.delay} />
+            </React.Fragment>
+          );
+        })}
         <CameraController />
       </Canvas>
-
       <div className="InfoBox-wrapper">
         <InfoBox />
+      </div>
+      <div className="NodeInfoBox-wrapper">
+        <NodeInfoBox selectedNode={selectedNode} />
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ const InfoBox: React.FC = () => {
             <tr>
                 <th>名前</th>
                 <th>接続回数</th>
-                <th>ポート番号</th>
+                {/* <th>ポート番号</th> */}
             </tr>
             </thead>
             <tbody>
@@ -57,7 +57,7 @@ const InfoBox: React.FC = () => {
                 <tr key={index}>
                 <td>{item.name}</td>
                 <td>{item.connections}</td>
-                <td>{item.port}</td>
+                {/* <td>{item.port}</td> */}
                 </tr>
             ))}
             </tbody>
