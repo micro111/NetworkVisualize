@@ -165,3 +165,4 @@ seen_*
 log/*
 app/node_modules/*
 app/assets/*
+blacklist/*

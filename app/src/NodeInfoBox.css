@@ -1,0 +1,67 @@
+.node-info-box {
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 1vh;  /* 10pxから1vhに変更 */
+  padding: 2vh;  /* 20pxから2vhに変更 */
+  width: 35vh;  /* 30%から30vhに変更 */
+  position: absolute;
+  top: 20vh;  /* 既にvh単位 */
+  left: 15vh;
+  font-size: 3vh;  /* 既にvh単位 */
+  max-height: 40vh;  /* 400pxから40vhに変更 */
+  overflow: hidden;
+}
+  
+  .node-info-box-header {
+    text-align: center;
+    margin-bottom: 1vh;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 1vh;
+  }
+  
+  .node-info-box-content {
+    overflow-y: auto;
+    max-height: 350px;
+  }
+  
+  .node-info-box table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .node-info-box thead {
+    background-color: rgba(0, 0, 0, 0.7);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  
+  .node-info-box th,
+  .node-info-box td {
+    padding: 10px;
+    text-align: center;
+    white-space: nowrap;
+    border: 1px solid white;
+  }
+  
+  /* スクロールバーの全体的なスタイル */
+.node-info-box-content::-webkit-scrollbar {
+    width: 10px;
+  }
+  
+  /* スクロールバーのトラック（背景） */
+  .node-info-box-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+  }
+  
+  /* スクロールバーのハンドル（動く部分） */
+  .node-info-box-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 5px;
+  }
+  
+  /* ハンドルをホバーしたときのスタイル */
+  .node-info-box-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.7);
+  }
