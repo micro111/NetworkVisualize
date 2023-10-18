@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { io, Socket } from "socket.io-client";
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Sphere, Html, Line } from '@react-three/drei';
 import { animated, useSpring } from '@react-spring/web';
@@ -9,16 +10,30 @@ import './3Dtest.css';
 
 const earthRadius = 5;
 
-const calculateSpherePoint = (lat, lon, radius) => {
+interface NodeProps {
+  position: [number, number, number];
+  info: any; // この型は具体的なオブジェクトの形状に合わせてください
+  onClick: (info: any) => void; // この型も具体的なオブジェクトの形状に合わせてください
+}
+
+interface ConnectionProps {
+  start: [number, number, number];
+  end: [number, number, number];
+  info: any;  // この行を追加
+  color: string;
+  delay?: number;
+  onAnimationComplete?: () => void;  // この行を追加
+}
+const calculateSpherePoint = (lat:number, lon:number, radius:number) => {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
   const x = -(radius * Math.sin(phi) * Math.cos(theta));
   const z = radius * Math.sin(phi) * Math.sin(theta);
   const y = radius * Math.cos(phi);
-  return [x, y, z];
+  return [x, y, z] as [number, number, number];
 };
 
-const Node = ({ position, info, onClick }) => {
+const Node: React.FC<NodeProps> = ({ position, info, onClick }) => {
   const [hovered, setHovered] = useState(false);
   const animationProps = useSpring({ opacity: hovered ? 1 : 0 });
   const AnimatedHtml = animated(Html);
@@ -33,7 +48,7 @@ const Node = ({ position, info, onClick }) => {
       <Sphere args={[0.1]}>
         <meshStandardMaterial color={'lightblue'} />
       </Sphere>
-      <AnimatedHtml style={animationProps} scaleFactor={10}>
+      <AnimatedHtml style={animationProps}>
         <div style={{ color: 'white', background: 'rgba(0, 0, 0, 0.5)', padding: '10px', borderRadius: '5px', fontSize: '16px' }}>
           {info.info}
         </div>
@@ -42,10 +57,11 @@ const Node = ({ position, info, onClick }) => {
   );
 };
 
-const Connection = ({ start, end, info, color, delay = 0 }) => {
+const Connection: React.FC<ConnectionProps & { onAnimationComplete: () => void }> = ({ start, end, color, delay = 0, onAnimationComplete }) => {
   const [lineProgress, setLineProgress] = useState(0);
-  const [points, setPoints] = useState([]);
+  const [points, setPoints] = useState<Vector3[]>([]);
   const [isDelayed, setIsDelayed] = useState(true);
+
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -54,32 +70,42 @@ const Connection = ({ start, end, info, color, delay = 0 }) => {
     return () => clearTimeout(timer);
   }, [delay]);
 
+  const [offset, setOffset] = useState<number|null>(null);
+
   useEffect(() => {
-    const midPoint = new Vector3(
-      (start[0] + end[0]) / 2,
-      (start[1] + end[1]) / 2,
-      (start[2] + end[2]) / 2
-    );
-    const length = midPoint.length();
-    const scalingFactor = 2;
-    midPoint.normalize().multiplyScalar(length * scalingFactor);
+    if (offset === null) {
+      setOffset(Math.random() * 1 - 0.5); // -0.5から0.5の範囲でランダムな値を生成
+    }
+  }, [offset]);
 
-    const curve = new CatmullRomCurve3([
-      new Vector3(...start),
-      midPoint,
-      new Vector3(...end),
-    ]);
+  useEffect(() => {
+    if (offset !== null) {
+      const midPoint = new Vector3(
+        (start[0] + end[0]) / 2 + offset,
+        (start[1] + end[1]) / 2,
+        (start[2] + end[2]) / 2 + offset
+      );
+      const length = midPoint.length();
+      const scalingFactor = 2;
+      midPoint.normalize().multiplyScalar(length * scalingFactor);
 
-    const fullPoints = curve.getPoints(50);
-    const newPoints = fullPoints.slice(0, Math.floor(lineProgress * fullPoints.length));
-    setPoints(newPoints);
+      const curve = new CatmullRomCurve3([
+        new Vector3(...start),
+        midPoint,
+        new Vector3(...end),
+      ]);
+      const fullPoints = curve.getPoints(50);
+      const newPoints = fullPoints.slice(0, Math.floor(lineProgress * fullPoints.length));
+      setPoints(newPoints);
+      }
   }, [lineProgress, start, end]);
-
+  
   useFrame(() => {
     if (!isDelayed) {
       if (lineProgress < 1) {
         setLineProgress((prev) => Math.min(prev + 0.01, 1));
       } else {
+        onAnimationComplete();
         setLineProgress(0);
       }
     }
@@ -100,11 +126,11 @@ const Connection = ({ start, end, info, color, delay = 0 }) => {
 
 const Earth = () => {
   const earthRef = useRef(null);
-  const [earthTexture, setEarthTexture] = useState(null);
+  const [earthTexture, setEarthTexture] = useState<THREE.Texture | null>(null);
 
   useEffect(() => {
     new TextureLoader().load('assets/earthspec1k.jpg', texture => {
-      setEarthTexture(texture);
+      setEarthTexture(texture as any);
     });
   }, []);
 
@@ -112,7 +138,7 @@ const Earth = () => {
     <mesh ref={earthRef} position={[0, 0, 0]}>
       <Sphere args={[earthRadius, 64, 64]}>
         {earthTexture && (
-          <meshStandardMaterial map={earthTexture} rotation={0} />
+          <meshStandardMaterial map={earthTexture} />
         )}
       </Sphere>
     </mesh>
@@ -121,7 +147,7 @@ const Earth = () => {
 
 const CameraController = () => {
   const { camera } = useThree();
-  const controls = useRef();
+  const controls = useRef<any>(null);
   let angle = 0;
 
   useFrame(() => {
@@ -134,32 +160,64 @@ const CameraController = () => {
     }
   });
 
-  return <OrbitControls ref={controls} autoRotate enablePan={false} />;
+  return <OrbitControls ref={controls as any} autoRotate enablePan={false} />;
 };
 
 const Graph3D = () => {
   const [enableAutoRotate, setEnableAutoRotate] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
 
+  const [delayOffset, setdelayOffset] = useState<number>(0);
+
+  useEffect(() => {
+    if (delayOffset == 0) {
+      setdelayOffset(Math.random()* 1000);
+    }
+  }, [delayOffset]);
+
+
   const handleOrbitControlsChange = () => {
     setEnableAutoRotate(false);
   };
 
-  const handleNodeClick = (nodeInfo) => {
+  const handleNodeClick = (nodeInfo: any) => { // この型も具体的なオブジェクトの形状に合わせてください
     setSelectedNode(nodeInfo);
   };
 
-  const japanPosition = calculateSpherePoint(35.6895, 139.6917, earthRadius);
-  const nodeData = [
-    { lat: 40.7128, lon: -74.0060, info: 'USA', color: 'red', delay: 0 },
-    { lat: 39.9042, lon: 116.4074, info: 'China', color: 'green', delay: 1000 },
-    { lat: 41.9028, lon: 12.4964, info: 'Italy', color: 'blue', delay: 2000 },
-  ];
+  const handleAnimationComplete = (nodeIndex: number) => {
+    setNodeData(prev => prev.filter((_, idx) => idx !== nodeIndex));
+  };
 
+  const japanPosition = calculateSpherePoint(35.6895, 139.6917, earthRadius);
+  const [nodeData, setNodeData] = useState([{ lat: 40.7128, lon: -74.0060, info: 'USA', color: 'red', delay: 0 }]);
+  useEffect(() => {
+    // Socket.IOクライアントを初期化
+    const socket: Socket = io("http://192.168.2.195:8080");
+
+    // サーバーからメッセージを受信したときの処理
+    socket.on("message", (data: any) => {
+      console.log("Received data from server:", data);
+      setNodeData(prevNodeData => [...prevNodeData,{ lat: 40.7128, lon: -74.0060, info: 'USA', color: 'red', delay: 0 }])
+    });
+
+    // 接続が開かれたときの処理
+    socket.on("connect", () => {
+      console.log("Connected to server");
+    });
+
+    // 接続が閉じられたときの処理
+    socket.on("disconnect", () => {
+      console.log("Disconnected from server");
+    });
+
+    // コンポーネントがアンマウントされたときにSocketを閉じる
+    return () => {
+      socket.disconnect();
+    };
+  })
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
-        antialias={"true"}
         style={{ background: 'black' }}
         camera={{ position: [0, 0, 20], fov: 50 }}
       >
@@ -182,7 +240,7 @@ const Graph3D = () => {
           return (
             <React.Fragment key={idx}>
               <Node position={position} info={node} onClick={handleNodeClick} />
-              <Connection start={japanPosition} end={position} info={node.info} color={node.color} delay={node.delay} />
+              <Connection start={japanPosition} end={position} info={node.info} color={node.color} delay={delayOffset} onAnimationComplete={() => handleAnimationComplete(idx)} />
             </React.Fragment>
           );
         })}

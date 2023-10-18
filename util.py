@@ -15,13 +15,17 @@ def get_country(ip_address):
         return {        
             "ISO": location["country"]["iso_code"] if "country" in location and "iso_code" in location["country"] else "None",
             "Country": location["country"]["names"]["en"] if "country" in location and "names" in location["country"] and "en" in location["country"]["names"] else "None",
-            "City": location["city"]["names"]["en"]  if "city" in location and "names" in location["city"] and "en" in location["city"]["names"] else "None"
+            "City": location["city"]["names"]["en"]  if "city" in location and "names" in location["city"] and "en" in location["city"]["names"] else "None",
+            "lon" : location["location"]["longitude"] if "location" in location and "longitude" in location["location"] else "None",
+            "lat" : location["location"]["latitude"] if "location" in location and "latitude" in location["location"] else "None"
             }
     else:
         return {
             "ISO":"None",
             "Country":"None",
-            "City":"None"
+            "City":"None",
+            "lon":"None",
+            "lat":"None"
         }
     # loc["continent"]["names"]["en"]
 

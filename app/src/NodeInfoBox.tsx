@@ -1,6 +1,9 @@
 import './NodeInfoBox.css'; // CSSファイルをインポート
 
-const NodeInfoBox = ({ selectedNode }) => {
+interface NodeInfoBoxProps {
+  selectedNode: any; // この型は具体的なオブジェクトの形状に合わせてください
+}
+const NodeInfoBox: React.FC<NodeInfoBoxProps> = ({ selectedNode }) => {
   return (
     <div className="node-info-box">
       <div className="node-info-box-header">
