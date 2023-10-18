@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 import sqlite3
 
 class SQLiteDB:
@@ -10,7 +11,7 @@ class SQLiteDB:
             if not os.path.exists(dir_name):
                 os.makedirs(dir_name)
             self.conn = sqlite3.connect(dir_name + database_name,check_same_thread=check_same_thread)
-        
+        self.db_lock = threading.Lock()
         self.cursor = self.conn.cursor()
 
     def create_table(self, table_name, columns):
@@ -20,24 +21,28 @@ class SQLiteDB:
         self.conn.commit()
 
     def insert_data(self, table_name, data):
-        columns = ', '.join(data.keys())
-        placeholders = ', '.join(['?' for _ in data.values()])
-        values = tuple(data.values())
-        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-        self.cursor.execute(query, values)
-        self.conn.commit()
+        with self.db_lock: 
+            columns = ', '.join(data.keys())
+            placeholders = ', '.join(['?' for _ in data.values()])
+            values = tuple(data.values())
+            query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+            self.cursor.execute(query, values)
+            self.conn.commit()
 
     def fetch_all(self, table_name):
-        query = f"SELECT * FROM {table_name}"
-        self.cursor.execute(query)
+        with self.db_lock: 
+            query = f"SELECT * FROM {table_name}"
+            self.cursor.execute(query)
         return self.cursor.fetchall()
 
-    def cleanup(self, table_name):
-        fifteen_minutes_ago = int(time.time()) - 15 * 60
-        query = f"DELETE FROM {table_name} WHERE timestamp < ?"
-        self.cursor.execute(query, (fifteen_minutes_ago,))
-        self.conn.commit()
-        
+    def clean_data(self,table_name):
+        while True:
+            with self.db_lock: 
+                query = f"DELETE FROM  {table_name} WHERE (? - timestamp) >= 900"
+                self.cursor.execute(query, (time.time(),))
+                self.conn.commit()
+            time.sleep(60)  # 1分ごとに掃除
+
     def close(self):
         if self.conn:
             self.conn.close()
