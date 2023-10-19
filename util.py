@@ -16,16 +16,16 @@ def get_country(ip_address):
             "ISO": location["country"]["iso_code"] if "country" in location and "iso_code" in location["country"] else "None",
             "Country": location["country"]["names"]["en"] if "country" in location and "names" in location["country"] and "en" in location["country"]["names"] else "None",
             "City": location["city"]["names"]["en"]  if "city" in location and "names" in location["city"] and "en" in location["city"]["names"] else "None",
-            "lon" : location["location"]["longitude"] if "location" in location and "longitude" in location["location"] else "None",
-            "lat" : location["location"]["latitude"] if "location" in location and "latitude" in location["location"] else "None"
+            "lon" : location["location"]["longitude"] if "location" in location and "longitude" in location["location"] else "-1",
+            "lat" : location["location"]["latitude"] if "location" in location and "latitude" in location["location"] else "-1"
             }
     else:
         return {
             "ISO":"None",
             "Country":"None",
             "City":"None",
-            "lon":"None",
-            "lat":"None"
+            "lon":"-1",
+            "lat":"-1"
         }
     # loc["continent"]["names"]["en"]
 

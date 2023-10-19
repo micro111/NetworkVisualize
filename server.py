@@ -5,13 +5,14 @@ import eventlet
 import threading
 from flask import Flask, render_template, send_from_directory,jsonify,request
 from flask_socketio import SocketIO
-
+from flask_cors import CORS
 from capture import PacketAnalyzer
 
 
 
 app = Flask(__name__, template_folder="./app/dist")
-socketio = SocketIO(app, async_mode='threading')
+CORS(app)
+socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
 
 connected_clients = set()  
 
@@ -55,14 +56,19 @@ def process_data():
     tshark_thread.daemon = True
     tshark_thread.start()
 
+    ipaddr = ""
+    
     while True:
         if not analyzer.data_queue.empty():
-            received_data = analyzer.data_queue.get()
-            socketio.emit('message', received_data)
+            data = analyzer.data_queue.get()
+            if not ipaddr == data["IPaddr"]: 
+                ipaddr = data["IPaddr"]
+                socketio.emit('message', data)
+
 
 if __name__ == "__main__":
     try:
-        if not is_admin():
+        if is_admin():
             ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
         else:
             data_thread = threading.Thread(target=process_data)

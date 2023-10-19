@@ -191,13 +191,11 @@ const Graph3D = () => {
   const japanPosition = calculateSpherePoint(35.6895, 139.6917, earthRadius);
   const [nodeData, setNodeData] = useState([{ lat: 40.7128, lon: -74.0060, info: 'USA', color: 'red', delay: 0 }]);
   useEffect(() => {
-    // Socket.IOクライアントを初期化
     const socket: Socket = io("http://192.168.2.195:8080");
-
     // サーバーからメッセージを受信したときの処理
     socket.on("message", (data: any) => {
       console.log("Received data from server:", data);
-      setNodeData(prevNodeData => [...prevNodeData,{ lat: 40.7128, lon: -74.0060, info: 'USA', color: 'red', delay: 0 }])
+      setNodeData(prevNodeData => [...prevNodeData,{ lat: data["lat"], lon: data["lon"], info: data["Country"], color: 'red', delay: 0 }])
     });
 
     // 接続が開かれたときの処理
@@ -214,7 +212,7 @@ const Graph3D = () => {
     return () => {
       socket.disconnect();
     };
-  })
+  },[])
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas

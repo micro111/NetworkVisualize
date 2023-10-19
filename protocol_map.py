@@ -52,5 +52,7 @@ protocol_map = {
 }
 
 def ip_proto_to_name(proto_number):
+    if len(proto_number.split(",")) > 1:
+        proto_number = proto_number[0]
     return protocol_map.get(int(proto_number), proto_number)
 
