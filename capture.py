@@ -15,11 +15,9 @@ class PacketAnalyzer:
     def __init__(self, log_dir="log/", callback=void):
         self.TSHARK_PATH = 'C:\\Program Files\\Wireshark\\tshark.exe'
         self.LOG_DIR = log_dir
-        self.SEEN_SRC_IPS_FILE = "seen_src_ips.txt"
-        self.SEEN_DST_IPS_FILE = "seen_dst_ips.txt"
-
-        self.data_queue = queue.Queue()
-        
+        self.sender_ips_FILE = "sender_ips.txt"
+        self.reciver_ips_FILE = "reciver_ips.txt"
+        self.data_queue = queue.Queue() 
         # self.db = SQLiteDB(database_name="test",in_memory=False,check_same_thread=False)
         self.db = SQLiteDB(check_same_thread=False)
         self.src_table_name = "ip_list_src"
@@ -29,8 +27,6 @@ class PacketAnalyzer:
         self.bl_list = BlacklistChecker()
         self.callback = callback
 
-        # db.insert_data("users", {"name": "Taro", "age": 30})
-        # print(db.fetch_all("users"))
         if not os.path.exists(self.LOG_DIR):
             os.makedirs(self.LOG_DIR)
 
@@ -73,8 +69,8 @@ class PacketAnalyzer:
 
 
     def run_tshark(self):
-        seen_src_ips = self.load_seen_ips(self.SEEN_SRC_IPS_FILE)
-        seen_dst_ips = self.load_seen_ips(self.SEEN_DST_IPS_FILE)
+        sender_ips = self.load_seen_ips(self.sender_ips_FILE)
+        reciver_ips = self.load_seen_ips(self.reciver_ips_FILE)
         current_ip = self.get_global_ip()
         
         cmd = [
@@ -102,6 +98,7 @@ class PacketAnalyzer:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0, text=True)
             while True:
                 line = process.stdout.readline()
+                # print(line)
                 if line.replace("|","").strip():
                     data = line.strip().split("|")
 
@@ -117,23 +114,26 @@ class PacketAnalyzer:
 
                     dsts, srcs = data[-4:-2]
                     for src,dst in zip(srcs.split(","),dsts.split(",")):
-                        if current_ip not in src:
-                            thread1 = threading.Thread(target=self.insert_src_IP, args=(src,app_prot,num_prot))
-                            thread1.daemon = True
-                            thread1.start()
-                            if src not in seen_src_ips:
-                                print(f"New src IP detected: {src}")
-                                seen_src_ips.add(src)
-                                self.save_seen_ips(seen_src_ips, self.SEEN_SRC_IPS_FILE)
+                        if current_ip in src: #送信
+                            thread = threading.Thread(target=self.insert_dst_IP, args=(dst,app_prot,num_prot))
+                            thread.daemon = True 
+                            thread.start()
+                            if dst not in reciver_ips:
+                                print(f"New reciver IP detected: {dst}")
+                                reciver_ips.add(dst)
+                                self.save_seen_ips(reciver_ips, self.reciver_ips_FILE)    
                                 
-                        elif current_ip not in dst:
-                            thread2 = threading.Thread(target=self.insert_dst_IP, args=(dst,app_prot,num_prot))
-                            thread2.daemon = True 
-                            thread2.start()
-                            if dst not in seen_dst_ips:
-                                print(f"New dst IP detected: {dst}")
-                                seen_dst_ips.add(dst)
-                                self.save_seen_ips(seen_dst_ips, self.SEEN_DST_IPS_FILE)
+                        elif current_ip in dst: #受信
+                            thread = threading.Thread(target=self.insert_src_IP, args=(src,app_prot,num_prot))
+                            thread.daemon = True
+                            thread.start()
+                            if src not in sender_ips:
+                                print(f"New Sender IP detected: {src}")
+                                sender_ips.add(src)
+                                self.save_seen_ips(sender_ips, self.sender_ips_FILE)
+                                
+                                
+
 
         except Exception as e:
             logging.error(f"An error occurred: {e}")
@@ -142,7 +142,7 @@ class PacketAnalyzer:
     def insert_src_IP(self, src, app_prot, num_prot):
         check_result = self.bl_list.check_ip_in_downloaded_blacklist(src)
         region_result = get_country(src)
-
+        t = int(time.time())
         columns = {
             "IPaddr": src,
             "TALO": check_result["TALO"] if "TALO" in check_result else 2 ,
@@ -152,11 +152,11 @@ class PacketAnalyzer:
             "City": region_result["City"],
             "App":app_prot,
             "Prot":num_prot,
-            "timestamp": int(time.time())  # 挿入時間
+            "timestamp": t  # 挿入時間
         }
 
         self.insert_database(self.src_table_name,columns)
-        columns["kinds"] = "src"
+        columns["kinds"] = "Send"
         columns["lon"] = region_result["lon"]
         columns["lat"] = region_result["lat"]
         
@@ -166,7 +166,7 @@ class PacketAnalyzer:
     def insert_dst_IP(self, dst, app_prot, num_prot):
         check_result = self.bl_list.check_ip_in_downloaded_blacklist(dst)
         region_result = get_country(dst)
-
+        t = int(time.time())
         columns = {
             "IPaddr": dst,
             "TALO": check_result["TALO"] if "TALO" in check_result else 2 ,
@@ -176,11 +176,11 @@ class PacketAnalyzer:
             "City": region_result["City"],
             "App":app_prot,
             "Prot":num_prot,
-            "timestamp": int(time.time())  # 挿入時間
+            "timestamp": t  # 挿入時間
         }
 
         self.insert_database(self.dst_table_name,columns)
-        columns["kinds"] = "dst"
+        columns["kinds"] = "Reciver"
         columns["lon"] = region_result["lon"]
         columns["lat"] = region_result["lat"]
         

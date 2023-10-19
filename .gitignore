@@ -161,7 +161,7 @@ cython_debug/
 
 
 backup_py/*
-seen_*
+*_ips.txt
 log/*
 app/node_modules/*
 app/assets/*
