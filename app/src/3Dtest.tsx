@@ -209,7 +209,7 @@ const Graph3D = () => {
   const japanPosition = calculateSpherePoint(35.6895, 139.6917, earthRadius);
   const NoneSpherePosition = calculateSpherePoint(35.6895 + 2, 139.6917, earthRadius); // 日本の上空に位置
   const scaledNoneSpherePosition = NoneSpherePosition.map(coordinate => coordinate * 3) as [number, number, number]
-  const [nodeData, setNodeData] = useState([{id:generateUniqueId(), lat: 40.7128, lon: -74.0060, info: 'USA', color: 'white', delay: 0 ,action: "Sender"}]);
+  const [nodeData, setNodeData] = useState([{id:generateUniqueId(), IPaddr: "0.0.0.0", lat: 40.7128, lon: -74.0060, info: 'USA', color: 'white', delay: 0 ,action: "Sender"}]);
   useEffect(() => {
     const socket: Socket = io("http://192.168.2.195:8080");
     // サーバーからメッセージを受信したときの処理
@@ -220,7 +220,15 @@ const Graph3D = () => {
         data["color"] = "red"
       }
       if (document.visibilityState === 'visible') {
-        setNodeData(prevNodeData => [...prevNodeData,{id:generateUniqueId(),lat: data["lat"], lon: data["lon"], info: data["Country"], color: data["color"], delay: 0 ,action: data["kinds"]}])
+        setNodeData(prevNodeData => {
+          if (prevNodeData.length > 100) {
+            const filteredData = prevNodeData.filter((node, index, self) => {
+              return self.findIndex(t => t.IPaddr === node.IPaddr  && t.action === node.action) === index;
+            });
+            return [...filteredData, {id:generateUniqueId(), IPaddr: data["IPaddr"], lat: data["lat"], lon: data["lon"], info: data["Country"], color: data["color"], delay: data["delay"], action: data["kinds"]}];
+          }
+          return [...prevNodeData,{id:generateUniqueId(), IPaddr: data["IPaddr"], lat: data["lat"], lon: data["lon"], info: data["Country"], color: data["color"], delay: data["delay"] ,action: data["kinds"]}]
+        })
       }
       
     });
@@ -272,7 +280,7 @@ const Graph3D = () => {
         return (
           <React.Fragment key={node.id}>
             <Node position={position} info={node} onClick={handleNodeClick} />
-            <Connection start={start} end={end} info={node.info} color={node.color} delay={delayOffset} onAnimationComplete={() => handleAnimationComplete(node.id)} />
+            <Connection start={start} end={end} info={node.info} color={node.color} delay={node.delay} onAnimationComplete={() => handleAnimationComplete(node.id)} />
           </React.Fragment>
           );
         })}
