@@ -1,7 +1,6 @@
 import sys
-import json
 import ctypes
-import eventlet
+
 import threading
 from flask import Flask, render_template, send_from_directory,jsonify,request
 from flask_socketio import SocketIO
@@ -56,14 +55,19 @@ def process_data():
     tshark_thread.daemon = True
     tshark_thread.start()
 
-    ipaddr = ""
-    
+    ipaddr_sender = ""
+    ipaddr_reciver = ""
     while True:
         if not analyzer.data_queue.empty():
             data = analyzer.data_queue.get()
-            if not ipaddr == data["IPaddr"]: 
-                ipaddr = data["IPaddr"]
-                socketio.emit('message', data)
+            if data["kinds"] == "Sender":
+                if not ipaddr_sender == data["IPaddr"]: 
+                    ipaddr_sender = data["IPaddr"]
+                    socketio.emit('message', data)
+            else:
+                if not ipaddr_reciver == data["IPaddr"]: 
+                    ipaddr_reciver = data["IPaddr"]
+                    socketio.emit('message', data) 
 
 
 if __name__ == "__main__":

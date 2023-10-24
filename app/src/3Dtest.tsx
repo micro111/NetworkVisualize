@@ -61,7 +61,7 @@ const Connection: React.FC<ConnectionProps & { onAnimationComplete: () => void }
   const [lineProgress, setLineProgress] = useState(0);
   const [points, setPoints] = useState<Vector3[]>([]);
   const [isDelayed, setIsDelayed] = useState(true);
-
+  const [opacity, setOpacity] = useState(1); // 追加
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -74,15 +74,30 @@ const Connection: React.FC<ConnectionProps & { onAnimationComplete: () => void }
 
   useEffect(() => {
     if (offset === null) {
-      setOffset(Math.random() * 1 - 0.5); // -0.5から0.5の範囲でランダムな値を生成
+      setOffset(Math.random() * 0.5 - 0.25); // -0.5から0.5の範囲でランダムな値を生成
     }
   }, [offset]);
+
+  useFrame(() => {
+    if (!isDelayed) {
+      if (lineProgress < 1) {
+        setLineProgress((prev) => Math.min(prev + 0.01, 1));
+      } else {
+        setOpacity(prev => Math.max(prev - 0.05, 0));  // フェードアウト
+        if (opacity <= 0) {
+          onAnimationComplete();
+          setLineProgress(0);
+          setOpacity(1); // 透明度をリセット
+        }
+      }
+    }
+  });
 
   useEffect(() => {
     if (offset !== null) {
       const midPoint = new Vector3(
         (start[0] + end[0]) / 2 + offset,
-        (start[1] + end[1]) / 2,
+        (start[1] + end[1]) / 2 + offset,
         (start[2] + end[2]) / 2 + offset
       );
       const length = midPoint.length();
@@ -117,7 +132,9 @@ const Connection: React.FC<ConnectionProps & { onAnimationComplete: () => void }
         <Line
           points={points}
           color={color}
-          lineWidth={0.7}
+          lineWidth={2}
+          transparent  // 透明度を適用するためにはこのプロパティが必要です
+          opacity={opacity}  // 透明度
         />
       )}
     </>
@@ -162,6 +179,7 @@ const CameraController = () => {
 
   return <OrbitControls ref={controls as any} autoRotate enablePan={false} />;
 };
+const generateUniqueId = () => '_' + Math.random().toString(36).substr(2, 9);
 
 const Graph3D = () => {
   const [enableAutoRotate, setEnableAutoRotate] = useState(true);
@@ -175,7 +193,7 @@ const Graph3D = () => {
     }
   }, [delayOffset]);
 
-
+  
   const handleOrbitControlsChange = () => {
     setEnableAutoRotate(false);
   };
@@ -184,18 +202,27 @@ const Graph3D = () => {
     setSelectedNode(nodeInfo);
   };
 
-  const handleAnimationComplete = (nodeIndex: number) => {
-    setNodeData(prev => prev.filter((_, idx) => idx !== nodeIndex));
+  const handleAnimationComplete = (nodeId: string) => {
+    setNodeData(prev => prev.filter(node => node.id !== nodeId));
   };
 
   const japanPosition = calculateSpherePoint(35.6895, 139.6917, earthRadius);
-  const [nodeData, setNodeData] = useState([{ lat: 40.7128, lon: -74.0060, info: 'USA', color: 'red', delay: 0 }]);
+  const NoneSpherePosition = calculateSpherePoint(35.6895 + 2, 139.6917, earthRadius); // 日本の上空に位置
+  const scaledNoneSpherePosition = NoneSpherePosition.map(coordinate => coordinate * 3) as [number, number, number]
+  const [nodeData, setNodeData] = useState([{id:generateUniqueId(), lat: 40.7128, lon: -74.0060, info: 'USA', color: 'white', delay: 0 ,action: "Sender"}]);
   useEffect(() => {
     const socket: Socket = io("http://192.168.2.195:8080");
     // サーバーからメッセージを受信したときの処理
     socket.on("message", (data: any) => {
-      console.log("Received data from server:", data);
-      setNodeData(prevNodeData => [...prevNodeData,{ lat: data["lat"], lon: data["lon"], info: data["Country"], color: 'red', delay: 0 }])
+      // console.log("Received data from server:", data);
+      if (data["TALO"] != 0 || data["FIRE"] != 0){
+        console.log("WARRNING:: ", data)
+        data["color"] = "red"
+      }
+      if (document.visibilityState === 'visible') {
+        setNodeData(prevNodeData => [...prevNodeData,{id:generateUniqueId(),lat: data["lat"], lon: data["lon"], info: data["Country"], color: data["color"], delay: 0 ,action: data["kinds"]}])
+      }
+      
     });
 
     // 接続が開かれたときの処理
@@ -232,14 +259,21 @@ const Graph3D = () => {
           onChange={handleOrbitControlsChange}
         />
         <Earth />
-        <Node position={japanPosition} info={{ lat: 35.6895, lon: 139.6917, info: 'Japan' }} onClick={handleNodeClick} />
-        {nodeData.map((node, idx) => {
-          const position = calculateSpherePoint(node.lat, node.lon, earthRadius);
-          return (
-            <React.Fragment key={idx}>
-              <Node position={position} info={node} onClick={handleNodeClick} />
-              <Connection start={japanPosition} end={position} info={node.info} color={node.color} delay={delayOffset} onAnimationComplete={() => handleAnimationComplete(idx)} />
-            </React.Fragment>
+        
+        <Node position={japanPosition} info={{lat: 35.6895, lon: 139.6917, info: 'Japan' }} onClick={handleNodeClick} />
+        <Node position={scaledNoneSpherePosition} info={{lat: 35.6895 + 2, lon: 139.6917, info: 'None' }} onClick={handleNodeClick} />
+         {nodeData.map((node) => {
+        const position = calculateSpherePoint(node.lat, node.lon, earthRadius);
+        let start = node.action === 'Sender' ? japanPosition : position;
+        let end = node.action === 'Sender' ? position : japanPosition;
+        if (node.info === 'None') {
+          end = NoneSpherePosition;
+        }
+        return (
+          <React.Fragment key={node.id}>
+            <Node position={position} info={node} onClick={handleNodeClick} />
+            <Connection start={start} end={end} info={node.info} color={node.color} delay={delayOffset} onAnimationComplete={() => handleAnimationComplete(node.id)} />
+          </React.Fragment>
           );
         })}
         <CameraController />
