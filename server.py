@@ -1,6 +1,6 @@
 import sys
 import ctypes
-
+import time
 import threading
 from flask import Flask, render_template, send_from_directory,jsonify,request
 from flask_socketio import SocketIO
@@ -57,10 +57,15 @@ def process_data():
 
     ipaddr_sender = ""
     ipaddr_reciver = ""
+    wait_time = 0
     while True:
         if not analyzer.data_queue.empty():
+            wait_time += 100
             data = analyzer.data_queue.get()
+            data["delay"] = wait_time
             if data["kinds"] == "Sender":
+                if data["IPaddr"] == "91.109.182.3":
+                    print("Sender")
                 if not ipaddr_sender == data["IPaddr"]: 
                     ipaddr_sender = data["IPaddr"]
                     socketio.emit('message', data)
@@ -68,6 +73,9 @@ def process_data():
                 if not ipaddr_reciver == data["IPaddr"]: 
                     ipaddr_reciver = data["IPaddr"]
                     socketio.emit('message', data) 
+        else:
+            time.sleep(0.1)
+            wait_time = 0
 
 
 if __name__ == "__main__":

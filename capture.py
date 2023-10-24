@@ -120,7 +120,6 @@ class PacketAnalyzer:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0, text=True)
             while True:
                 line = process.stdout.readline()
-                # print(line)
                 if line.replace("|","").strip():
                     data = line.strip().split("|")
 
@@ -137,7 +136,7 @@ class PacketAnalyzer:
                     dsts, srcs = data[-4:-2]
                     for src,dst in zip(srcs.split(","),dsts.split(",")):
                         if current_ip in src: #送信
-                            thread = threading.Thread(target=self.insert_dst_IP, args=(dst,app_prot,num_prot))
+                            thread = threading.Thread(target=self.insert_sender_IP, args=(dst,app_prot,num_prot))
                             thread.daemon = True 
                             thread.start()
                             if dst not in reciver_ips:
@@ -146,7 +145,7 @@ class PacketAnalyzer:
                                 self.save_seen_ips(reciver_ips, self.reciver_ips_FILE)    
                                 
                         elif current_ip in dst: #受信
-                            thread = threading.Thread(target=self.insert_src_IP, args=(src,app_prot,num_prot))
+                            thread = threading.Thread(target=self.insert_reciver_IP, args=(src,app_prot,num_prot))
                             thread.daemon = True
                             thread.start()
                             if src not in sender_ips:
@@ -161,7 +160,7 @@ class PacketAnalyzer:
             logging.error(f"An error occurred: {e}")
 
 
-    def insert_src_IP(self, src, app_prot, num_prot):
+    def insert_reciver_IP(self, src, app_prot, num_prot):
         check_result = self.bl_list.check_ip_in_downloaded_blacklist(src)
         region_result = get_country(src)
         t = int(time.time())
@@ -178,14 +177,14 @@ class PacketAnalyzer:
         }
 
         self.insert_database(self.src_table_name,columns)
-        columns["kinds"] = "Sender"
+        columns["kinds"] = "Reciver"
         columns["lon"] = region_result["lon"]
         columns["lat"] = region_result["lat"]
         columns["color"] = color_selector(columns["App"])
         self.data_queue.put(columns)
 
 
-    def insert_dst_IP(self, dst, app_prot, num_prot):
+    def insert_sender_IP(self, dst, app_prot, num_prot):
         check_result = self.bl_list.check_ip_in_downloaded_blacklist(dst)
         region_result = get_country(dst)
         t = int(time.time())
@@ -202,7 +201,7 @@ class PacketAnalyzer:
         }
 
         self.insert_database(self.dst_table_name,columns)
-        columns["kinds"] = "Reciver"
+        columns["kinds"] = "Sender"
         columns["lon"] = region_result["lon"]
         columns["lat"] = region_result["lat"]
         columns["color"] = color_selector(columns["App"])
