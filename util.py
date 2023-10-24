@@ -76,7 +76,6 @@ class BlacklistChecker:
     def check_ip_in_downloaded_blacklist(self, target_ip):
         result = {}
 
-        
         for name, ip_set in self.list_set.items():
             if target_ip in ip_set:
                 result[name] = 1

@@ -10,16 +10,36 @@ from protocol_map import ip_proto_to_name
 
 def void(data):
     print(data)
-    
+
+def color_selector(prot):
+    if prot =="TCP":
+        return "green"
+    elif prot == "RDP":
+        return "orange"
+    elif prot == "L2TP":
+        return "purple"
+    elif prot == "UDP":
+        return "blue"
+    elif prot == "http":
+        return "lightskyblue"
+    elif "Domain Name System" in prot:
+        return "yellow"
+    elif prot == "ESP":
+        return "deeppink"
+    return "white"
+
 class PacketAnalyzer:
     def __init__(self, log_dir="log/", callback=void):
         self.TSHARK_PATH = 'C:\\Program Files\\Wireshark\\tshark.exe'
         self.LOG_DIR = log_dir
         self.sender_ips_FILE = "sender_ips.txt"
         self.reciver_ips_FILE = "reciver_ips.txt"
-        self.data_queue = queue.Queue() 
+        self.data_queue = queue.Queue()
+
+        self.db_used = False
+         
         # self.db = SQLiteDB(database_name="test",in_memory=False,check_same_thread=False)
-        self.db = SQLiteDB(check_same_thread=False)
+        self.db = SQLiteDB(check_same_thread=False) if self.db_used else None
         self.src_table_name = "ip_list_src"
         self.dst_table_name = "ip_list_dst"
         self.create_database()
@@ -42,11 +62,13 @@ class PacketAnalyzer:
             "Prot TEXT",
             "Timestamp INTEGER "
         ]
-        self.db.create_table(self.src_table_name,columns)
-        self.db.create_table(self.dst_table_name,columns)
+        if self.db_used:
+            self.db.create_table(self.src_table_name,columns)
+            self.db.create_table(self.dst_table_name,columns)
 
     def insert_database(self,table_name,columns):
-        self.db.insert_data(table_name,columns)
+        if self.db_used:
+            self.db.insert_data(table_name,columns)
 
     def load_seen_ips(self, filename):
         if os.path.exists(filename):
@@ -156,10 +178,10 @@ class PacketAnalyzer:
         }
 
         self.insert_database(self.src_table_name,columns)
-        columns["kinds"] = "Send"
+        columns["kinds"] = "Sender"
         columns["lon"] = region_result["lon"]
         columns["lat"] = region_result["lat"]
-        
+        columns["color"] = color_selector(columns["App"])
         self.data_queue.put(columns)
 
 
@@ -183,7 +205,7 @@ class PacketAnalyzer:
         columns["kinds"] = "Reciver"
         columns["lon"] = region_result["lon"]
         columns["lat"] = region_result["lat"]
-        
+        columns["color"] = color_selector(columns["App"])
         self.data_queue.put(columns)
 
 if __name__ == "__main__":
